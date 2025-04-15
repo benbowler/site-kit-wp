@@ -1,0 +1,231 @@
+name: E2E Test Retry Until Failure
+run-name: '${{ github.event.inputs.run_label }} #${{ github.run_number }} 🔄 ${{ github.event.inputs.retry_full_test_name }} (${{ github.run_attempt }})'
+
+on:
+    workflow_dispatch:
+        inputs:
+            retry_full_test_name:
+                description: 'Full test name (including describe names) to retry until failure'
+                required: true
+                type: string
+            spec_file:
+                description: 'Spec file to retry until failure'
+                required: false
+                type: string
+                default: ''
+            run_label:
+                description: 'Run label (default: "E2E Test Retry Until Failure")'
+                required: false
+                type: string
+                default: 'E2E Test Retry Until Failure'
+            timeout_minutes:
+                description: 'Timeout in minutes (default: 180)'
+                required: false
+                type: number
+                default: 180
+            max_retries:
+                description: 'Maximum number of retries (default: 20)'
+                required: false
+                type: number
+                default: 20
+            reset_site_between_runs:
+                description: 'Reset the site between runs'
+                required: false
+                type: boolean
+                default: true
+            debug_redux:
+                description: 'Enable Redux debug logging for the target test'
+                required: false
+                type: boolean
+                default: false
+            debug_nav:
+                description: 'Enable navigation debug logging for the target test'
+                required: false
+                type: boolean
+                default: true
+            debug_rest:
+                description: 'Enable REST API debug logging for the target test'
+                required: false
+                type: boolean
+                default: true
+            debug_test_runner_logging:
+                description: 'Enable test runner debug logging'
+                required: false
+                type: boolean
+                default: false
+
+jobs:
+    e2e-tests:
+        name: E2E (WordPress latest)
+        runs-on: ubuntu-latest
+        # Ensure the timeout is a number.
+        timeout-minutes: ${{ fromJSON(github.event.inputs.timeout_minutes || 180) }}
+        if: github.event_name == 'workflow_dispatch'
+        env:
+            AMP_VERSION: ''
+            WP_VERSION: 'latest'
+            CA_CERT_REFRESH: ''
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Log workflow inputs
+              run: |
+                  echo "Workflow inputs:"
+                  echo "  retry_full_test_name: ${{ github.event.inputs.retry_full_test_name }}"
+                  echo "  spec_file: ${{ github.event.inputs.spec_file }}"
+                  echo "  timeout_minutes: ${{ github.event.inputs.timeout_minutes || 180 }}"
+                  echo "  max_retries: ${{ github.event.inputs.max_retries || 20 }}"
+                  echo "  reset_site_between_runs: ${{ github.event.inputs.reset_site_between_runs }}"
+                  echo "  debug_redux: ${{ github.event.inputs.debug_redux }}"
+                  echo "  debug_nav: ${{ github.event.inputs.debug_nav }}"
+                  echo "  debug_rest: ${{ github.event.inputs.debug_rest }}"
+                  echo "  debug_test_runner_logging: ${{ github.event.inputs.debug_test_runner_logging }}"
+            - name: Setup Node.js (.nvmrc)
+              uses: actions/setup-node@v4
+              with:
+                  node-version-file: '.nvmrc'
+                  cache: 'npm'
+
+            # TODO: Fix and restore global npm cache.
+            # - name: Restore global npm cache
+            #   uses: actions/cache@v4
+            #   id: global-npm-cache
+            #   with:
+            #       path: /opt/hostedtoolcache/node/14.21.3/x64/lib/node_modules
+            #       key: global-npm-${{ runner.os }}-7.24.2
+
+            # nvm@7 is the minimum version required for npm workspace support.
+            # This is needed to prevent js lint failures due to module resolution to the workspace packages.
+            # This can be removed once our node base version comes with nvm@7 or greater.
+            - name: Install npm Globally
+              #   if: steps.global-npm-cache.outputs.cache-hit != 'true'
+              run: npm run install-global-npm
+
+            # - name: Save global npm cache
+            #   if: steps.global-npm-cache.outputs.cache-hit != 'true'
+            #   uses: actions/cache/save@v4
+            #   with:
+            #       path: /opt/hostedtoolcache/node/14.21.3/x64/lib/node_modules
+            #       key: global-npm-${{ runner.os }}-7.24.2
+
+            - name: Check npm configuration
+              run: |
+                  echo "npm prefix: $(npm config get prefix)"
+                  echo "npm global prefix: $(npm config get globalprefix)"
+                  echo "npm global dir: $(npm config get global-dir)"
+                  echo "npm global bin: $(npm config get global-bin)"
+                  echo "npm root -g: $(npm root -g)"
+
+            # Using static cache keys since only test files change between runs for this exercise.
+            # Dependencies and build output are deterministic and can be cached permanently.
+            - name: Restore npm dependencies cache
+              uses: actions/cache@v4
+              id: npm-cache
+              with:
+                  path: |
+                      ${{ github.workspace }}/node_modules
+                      ~/.npm
+                  key: deps-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+            - name: npm install
+              if: steps.npm-cache.outputs.cache-hit != 'true'
+              run: npm ci
+
+            - name: Save npm dependencies cache
+              if: steps.npm-cache.outputs.cache-hit != 'true'
+              uses: actions/cache/save@v4
+              with:
+                  path: |
+                      ${{ github.workspace }}/node_modules
+                      ~/.npm
+                  key: deps-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+            - name: Get assets last commit
+              id: assets-commit
+              run: echo "hash=$(git ls-tree HEAD ./assets | awk '{print $3}')" >> "$GITHUB_OUTPUT"
+
+            - name: Restore build cache
+              uses: actions/cache@v4
+              id: build-cache
+              with:
+                  path: dist
+                  key: build-${{ runner.os }}-${{ steps.assets-commit.outputs.hash }}
+
+            - name: Build
+              if: steps.build-cache.outputs.cache-hit != 'true'
+              run: npm run build:test
+
+            - name: Save build cache
+              if: steps.build-cache.outputs.cache-hit != 'true'
+              uses: actions/cache/save@v4
+              with:
+                  path: dist
+                  key: build-${{ runner.os }}-${{ steps.assets-commit.outputs.hash }}
+
+            # E2E tests use a dedicated container, this is just for Composer.
+            - uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '7.4'
+                  tools: composer:2.1
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Get Composer Cache Directory
+              id: composer-cache
+              run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+            # TODO: Fix and restore composer cache.
+            # - name: Restore composer cache
+            #   uses: actions/cache@v4
+            #   id: composer-cache-step
+            #   with:
+            #       path: |
+            #           ${{ steps.composer-cache.outputs.dir }}
+            #           vendor
+            #           third-party
+            #       key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+
+            - name: Composer Install
+              #   if: steps.composer-cache-step.outputs.cache-hit != 'true'
+              run: composer install --no-interaction --no-progress --no-dev
+
+            # - name: Save composer cache
+            #   if: steps.composer-cache-step.outputs.cache-hit != 'true'
+            #   uses: actions/cache/save@v4
+            #   with:
+            #       path: |
+            #           ${{ steps.composer-cache.outputs.dir }}
+            #           vendor
+            #           third-party
+            #       key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+
+            - name: Start environment
+              run: npm run env:start
+
+            # Set a unique ID for test results that includes run ID, attempt number, and timestamp
+            # Using $GITHUB_ENV makes this variable available to all subsequent steps automatically
+            - name: Set test results ID
+              id: set-test-results-id
+              run: echo "TEST_RESULTS_ID_PREFIX=$(date -u +'%Y%m%d-%H%M%S')-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}" >> $GITHUB_ENV
+
+            - name: Run the tests until failure
+              env:
+                  RETRY_FULL_TEST_NAME: ${{ github.event.inputs.retry_full_test_name }}
+                  SPEC_FILE: ${{ github.event.inputs.spec_file }}
+                  MAX_RETRIES: ${{ github.event.inputs.max_retries || 20 }}
+                  RESET_SITE_BETWEEN_RUNS: ${{ github.event.inputs.reset_site_between_runs == 'true' && '1' || '' }}
+                  DEBUG_REDUX: ${{ github.event.inputs.debug_redux == 'true' && '1' || '' }}
+                  DEBUG_NAV: ${{ github.event.inputs.debug_nav == 'true' && '1' || '' }}
+                  DEBUG_REST: ${{ github.event.inputs.debug_rest == 'true' && '1' || '' }}
+                  DEBUG_TEST_RUNNER_LOGGING: ${{ github.event.inputs.debug_test_runner_logging == 'true' && '1' || '' }}
+              run: ./retry-test.sh
+              working-directory: tests/e2e
+
+            - name: Upload artifacts
+              uses: actions/upload-artifact@v4
+              with:
+                  name: e2e-debugging-run-${{ github.run_number }}-attempt-${{ github.run_attempt }}
+                  path: |
+                      ~/.npm/_logs/
+                      tests/e2e/screenshots/
+                      e2e-test-results/
