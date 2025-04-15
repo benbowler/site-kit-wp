@@ -1,6 +1,7 @@
 name: E2E Tests
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - develop
@@ -140,7 +141,25 @@ jobs:
         run: npm run env:start
 
       - name: Run the tests
-        run: npm run test:e2e
+        run:  npm run test:e2e --filter='tests/e2e/specs/wp-admin/site-health.test.js'
+      - name: Run the tests
+        run:  npm run test:e2e --filter='tests/e2e/specs/wp-admin/site-health.test.js'
+      - name: Run the tests
+        run:  npm run test:e2e --filter='tests/e2e/specs/wp-admin/site-health.test.js'
+      - name: Run the tests
+        run:  npm run test:e2e --filter='tests/e2e/specs/wp-admin/site-health.test.js'
+      - name: Run the tests
+        run:  npm run test:e2e --filter='tests/e2e/specs/wp-admin/site-health.test.js'
+      - name: Run the tests
+        run:  npm run test:e2e --filter='tests/e2e/specs/wp-admin/site-health.test.js'
+      - name: Run the tests
+        run:  npm run test:e2e --filter='tests/e2e/specs/wp-admin/site-health.test.js'
+      - name: Run the tests
+        run:  npm run test:e2e --filter='tests/e2e/specs/wp-admin/site-health.test.js'
+      - name: Run the tests
+        run:  npm run test:e2e --filter='tests/e2e/specs/wp-admin/site-health.test.js'
+      - name: Run the tests
+        run:  npm run test:e2e --filter='tests/e2e/specs/wp-admin/site-health.test.js'
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
