@@ -1,0 +1,188 @@
+name: E2E Stability Test
+
+on:
+  # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      duration_hours:
+        description: 'Duration to run tests in hours (max 24)'
+        required: true
+        default: '24'
+      interval_minutes:
+        description: 'Interval between test runs in minutes'
+        required: true
+        default: '30'
+      wp_version:
+        description: 'WordPress version to test'
+        required: true
+        default: 'latest'
+      amp_version:
+        description: 'AMP version to test (leave empty for none)'
+        required: false
+        default: ''
+  
+  # Allow being called from other workflows
+  workflow_call:
+    inputs:
+      duration_hours:
+        description: 'Duration to run tests in hours (max 24)'
+        type: number
+        required: false
+        default: 24
+      interval_minutes:
+        description: 'Interval between test runs in minutes'
+        type: number
+        required: false
+        default: 30
+      wp_version:
+        description: 'WordPress version to test'
+        type: string
+        required: false
+        default: 'latest'
+      amp_version:
+        description: 'AMP version to test (leave empty for none)'
+        type: string
+        required: false
+        default: ''
+
+jobs:
+  e2e-stability-test:
+    name: E2E Stability Test (WordPress ${{ github.event.inputs.wp_version || inputs.wp_version }}${{ (github.event.inputs.amp_version || inputs.amp_version) && ', AMP ' }}${{ github.event.inputs.amp_version || inputs.amp_version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 1500  # 25 hours max (24 hours + buffer)
+    permissions:
+      contents: write  # For committing results back to repo
+    
+    env:
+      AMP_VERSION: ${{ github.event.inputs.amp_version || inputs.amp_version }}
+      WP_VERSION: ${{ github.event.inputs.wp_version || inputs.wp_version }}
+      
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js (.nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      
+      - name: Install npm Globally
+        run: npm run install-global-npm
+      
+      - name: npm install
+        run: npm ci
+      
+      - name: Build
+        run: npm run build:test
+      
+      # E2E tests use a dedicated container, this is just for Composer.
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          tools: composer:2.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Get Composer Cache Directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+      
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+      
+      - name: Composer Install
+        run: composer install --no-interaction --no-progress --no-dev
+      
+      - name: Setup test environment
+        run: |
+          mkdir -p test-results
+          echo "[]" > test-results/e2e-stability-results.json
+          echo "START_TIME=$(date +%s)" >> $GITHUB_ENV
+          echo "END_TIME=$(date -d "+${{ github.event.inputs.duration_hours || inputs.duration_hours }} hours" +%s)" >> $GITHUB_ENV
+          echo "INTERVAL=$((${{ github.event.inputs.interval_minutes || inputs.interval_minutes }} * 60))" >> $GITHUB_ENV
+          echo "RUN_COUNT=0" >> $GITHUB_ENV
+      
+      - name: Run repeated tests
+        id: run_tests
+        run: |
+          while [[ $(date +%s) -lt $END_TIME ]]; do
+            echo "=== Starting test run #$RUN_COUNT at $(date) ==="
+            
+            # Start environment fresh for each run
+            npm run env:start
+            
+            # Run the E2E tests and capture output
+            TEST_START_TIME=$(date +%s)
+            TEST_OUTPUT=$(npm run test:e2e 2>&1) || true
+            TEST_STATUS=$?
+            TEST_END_TIME=$(date +%s)
+            TEST_DURATION=$((TEST_END_TIME - TEST_START_TIME))
+            
+            # Record results
+            TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
+            jq --arg timestamp "$TIMESTAMP" \
+               --arg run_number "$RUN_COUNT" \
+               --argjson status "$TEST_STATUS" \
+               --argjson duration "$TEST_DURATION" \
+               --arg output "$TEST_OUTPUT" \
+               '. += [{"timestamp": $timestamp, "run_number": $run_number, "status": $status, "duration": $duration, "output": $output}]' \
+               test-results/e2e-stability-results.json > temp.json && mv temp.json test-results/e2e-stability-results.json
+            
+            # Generate summary stats so far
+            TOTAL_RUNS=$((RUN_COUNT + 1))
+            SUCCESS_COUNT=$(jq '[.[] | select(.status == 0)] | length' test-results/e2e-stability-results.json)
+            FAILURE_COUNT=$(jq '[.[] | select(.status != 0)] | length' test-results/e2e-stability-results.json)
+            SUCCESS_RATE=$(echo "scale=2; ($SUCCESS_COUNT / $TOTAL_RUNS) * 100" | bc)
+            
+            echo "=== Test run #$RUN_COUNT completed with status $TEST_STATUS ==="
+            echo "=== Summary: $SUCCESS_COUNT/$TOTAL_RUNS successful ($SUCCESS_RATE% success rate) ==="
+            
+            # Increment run counter
+            RUN_COUNT=$((RUN_COUNT + 1))
+            echo "RUN_COUNT=$RUN_COUNT" >> $GITHUB_ENV
+            
+            # Wait for next interval if not at end time
+            CURRENT_TIME=$(date +%s)
+            if [[ $CURRENT_TIME -lt $END_TIME ]]; then
+              WAIT_TIME=$((TEST_START_TIME + INTERVAL - CURRENT_TIME))
+              if [[ $WAIT_TIME -gt 0 ]]; then
+                echo "Waiting $WAIT_TIME seconds until next test run..."
+                sleep $WAIT_TIME
+              fi
+            fi
+          done
+          
+          # Generate final summary
+          TOTAL_RUNS=$RUN_COUNT
+          SUCCESS_COUNT=$(jq '[.[] | select(.status == 0)] | length' test-results/e2e-stability-results.json)
+          FAILURE_COUNT=$(jq '[.[] | select(.status != 0)] | length' test-results/e2e-stability-results.json)
+          SUCCESS_RATE=$(echo "scale=2; ($SUCCESS_COUNT / $TOTAL_RUNS) * 100" | bc)
+          AVG_DURATION=$(jq '[.[] | .duration] | add / length' test-results/e2e-stability-results.json)
+          
+          echo "### E2E Stability Test Summary" > test-results/summary.md
+          echo "- Total runs: $TOTAL_RUNS" >> test-results/summary.md
+          echo "- Successful runs: $SUCCESS_COUNT" >> test-results/summary.md
+          echo "- Failed runs: $FAILURE_COUNT" >> test-results/summary.md
+          echo "- Success rate: $SUCCESS_RATE%" >> test-results/summary.md
+          echo "- Average duration: $AVG_DURATION seconds" >> test-results/summary.md
+          
+          # Create CSV for easier analysis
+          echo "run_number,timestamp,status,duration" > test-results/e2e-stability-results.csv
+          jq -r '.[] | [.run_number, .timestamp, .status, .duration] | @csv' test-results/e2e-stability-results.json >> test-results/e2e-stability-results.csv
+      
+      - name: Commit results back to repository
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add test-results/
+          git commit -m "Add E2E stability test results [skip ci]"
+          git push
+        
+      - name: Upload results as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-stability-results
+          path: test-results/
