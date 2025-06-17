@@ -19,7 +19,7 @@ on:
   
   # Schedule to run every 30 minutes
   schedule:
-    - cron: '17,47 * * * *'
+    - cron: '27,57 * * * *'
   
   # Allow being called from other workflows
   workflow_call:
@@ -157,6 +157,10 @@ jobs:
         id: fetch_results
         continue-on-error: true
         run: |
+          # Try to checkout the stability-test-results branch
+          git fetch origin stability-test-results || true
+          git checkout stability-test-results || git checkout -b stability-test-results
+          
           # Create directories if they don't exist
           mkdir -p test-results
           
@@ -234,7 +238,7 @@ jobs:
           git config --local user.name "GitHub Action"
           git add test-results/ stability-test-config.json
           git commit -m "Update E2E stability test results (run #$RUN_COUNT) [skip ci]"
-          git push origin
+          git push origin stability-test-results
         
       - name: Upload results as artifact
         uses: actions/upload-artifact@v4
@@ -292,13 +296,13 @@ jobs:
           git config --local user.name "GitHub Action"
           git add test-results/
           git commit -m "Add E2E stability test final report [skip ci]"
-          git push origin
+          git push origin stability-test-results
           
           # Clean up config to indicate test is complete
           rm stability-test-config.json
           git add -u
           git commit -m "Clean up stability test config [skip ci]"
-          git push origin
+          git push origin stability-test-results
       
       - name: Upload final results as artifact
         if: steps.check_results.outputs.results_exist == 'true'
