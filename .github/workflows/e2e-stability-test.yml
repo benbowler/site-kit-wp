@@ -19,7 +19,7 @@ on:
   
   # Schedule to run every 30 minutes
   schedule:
-    - cron: '0,30 * * * *'
+    - cron: '12,42 * * * *'
   
   # Allow being called from other workflows
   workflow_call:
