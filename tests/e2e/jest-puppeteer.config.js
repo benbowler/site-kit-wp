@@ -25,8 +25,6 @@ module.exports = {
 		slowMo: parseInt( process.env.PUPPETEER_SLOWMO, 10 ) || 0,
 		args: [
 			'--no-sandbox',
-			'--disable-setuid-sandbox',
-			'--disable-dev-shm-usage',
 			'--disable-web-security', // Fixes SSL issues that may happen on when you run e2e locally.
 		],
 	},
