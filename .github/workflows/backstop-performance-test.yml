@@ -161,28 +161,14 @@ jobs:
             TEST_OUTPUT_FILE="test-results/${{ needs.setup.outputs.test_parameter }}/${{ matrix.value }}/output-run-$i.txt"
             TEST_STATUS=0
             
-            # Run the test and capture both stdout and stderr
-            npm run test:visualtest > "$TEST_OUTPUT_FILE" 2>&1 || TEST_STATUS=$?
+            # Run the test and only capture status
+            npm run test:visualtest > /dev/null 2>&1 || TEST_STATUS=$?
             
             TEST_END_TIME=$(date +%s%3N)
             TEST_DURATION=$((TEST_END_TIME - TEST_START_TIME))
             
-            # Copy the JSON report to our results directory if it exists
-            if [ -f "tests/backstop/json_report/jsonReport.json" ]; then
-              cp tests/backstop/json_report/jsonReport.json test-results/${{ needs.setup.outputs.test_parameter }}/${{ matrix.value }}/report-run-$i.json
-            else
-              echo "{\"error\": \"No report generated\"}" > test-results/${{ needs.setup.outputs.test_parameter }}/${{ matrix.value }}/report-run-$i.json
-            fi
-            
-            # Extract error message if test failed
-            ERROR_MSG=""
-            if [ $TEST_STATUS -ne 0 ]; then
-              # Extract the error message from the output, properly escaping for JSON
-              ERROR_MSG=$(grep -A 5 "Error:" "$TEST_OUTPUT_FILE" 2>/dev/null | head -n 5 | tr -d '\000-\037' | sed 's/"/\\"/g' | tr '\n' ' ' || echo "Error details not available")
-            fi
-            
-            # Create a summary for this run including status and error
-            echo "{\"run\": $i, \"parameter\": \"${{ needs.setup.outputs.test_parameter }}\", \"value\": ${{ matrix.value }}, \"duration_ms\": $TEST_DURATION, \"status\": $TEST_STATUS, \"error\": \"$ERROR_MSG\"}" > test-results/${{ needs.setup.outputs.test_parameter }}/${{ matrix.value }}/summary-run-$i.json
+            # Create a summary for this run with only timing information
+            echo "{\"run\": $i, \"parameter\": \"${{ needs.setup.outputs.test_parameter }}\", \"value\": ${{ matrix.value }}, \"duration_ms\": $TEST_DURATION, \"status\": $TEST_STATUS}" > test-results/${{ needs.setup.outputs.test_parameter }}/${{ matrix.value }}/summary-run-$i.json
             
             echo "=== Completed test run #$i in ${TEST_DURATION}ms with status $TEST_STATUS ==="
           done
@@ -238,9 +224,9 @@ jobs:
             done
           done
           
-          # Generate CSV from JSON with status and error information
-          echo "parameter,value,run,duration_ms,status,error" > backstop-test-results/${{ needs.setup.outputs.test_parameter }}/results.csv
-          jq -r '.[] | [.parameter, .value, .run, .duration_ms, .status // 0, .error // ""] | @csv' backstop-test-results/${{ needs.setup.outputs.test_parameter }}/results.json >> backstop-test-results/${{ needs.setup.outputs.test_parameter }}/results.csv
+          # Generate CSV from JSON with only timing and status information
+          echo "parameter,value,run,duration_ms,status" > backstop-test-results/${{ needs.setup.outputs.test_parameter }}/results.csv
+          jq -r '.[] | [.parameter, .value, .run, .duration_ms, .status // 0] | @csv' backstop-test-results/${{ needs.setup.outputs.test_parameter }}/results.json >> backstop-test-results/${{ needs.setup.outputs.test_parameter }}/results.csv
           
           # Generate summary statistics
           jq -r '.[] | .value' backstop-test-results/${{ needs.setup.outputs.test_parameter }}/results.json | sort -n | uniq > values.txt
@@ -270,20 +256,13 @@ jobs:
             printf "| %s | %.2f | %d | %d | %.2f%% | %d |\n" "$value" "$avg" "$min" "$max" "$success_rate" "$failures" >> backstop-test-results/${{ needs.setup.outputs.test_parameter }}/summary.md
           done < values.txt
           
-          # Add error details section if there were any failures
+          # Note failures without details
           total_failures=$(jq -r "[.[] | select(.status != 0)] | length" backstop-test-results/${{ needs.setup.outputs.test_parameter }}/results.json)
           if [ "$total_failures" -gt 0 ]; then
             echo "" >> backstop-test-results/${{ needs.setup.outputs.test_parameter }}/summary.md
-            echo "## Error Details" >> backstop-test-results/${{ needs.setup.outputs.test_parameter }}/summary.md
+            echo "## Failures" >> backstop-test-results/${{ needs.setup.outputs.test_parameter }}/summary.md
             echo "" >> backstop-test-results/${{ needs.setup.outputs.test_parameter }}/summary.md
-            echo "| Value | Run | Error |" >> backstop-test-results/${{ needs.setup.outputs.test_parameter }}/summary.md
-            echo "|-------|-----|-------|" >> backstop-test-results/${{ needs.setup.outputs.test_parameter }}/summary.md
-            
-            # Add each error to the table
-            jq -r '.[] | select(.status != 0) | [.value, .run, .error] | @tsv' backstop-test-results/${{ needs.setup.outputs.test_parameter }}/results.json | \
-            while IFS=$'\t' read -r value run error; do
-              printf "| %s | %s | %s |\n" "$value" "$run" "$error" >> backstop-test-results/${{ needs.setup.outputs.test_parameter }}/summary.md
-            done
+            echo "$total_failures tests failed. See the summary table for details on which parameter values had failures." >> backstop-test-results/${{ needs.setup.outputs.test_parameter }}/summary.md
           fi
       
       - name: Commit results back to repository
