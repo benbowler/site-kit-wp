@@ -129,6 +129,9 @@ jobs:
       - name: npm install
         run: npm ci
 
+      - name: Build
+        run: npm run build:test
+
       - name: Build Storybook
         run: |
           # Build Storybook with VRT flag (same as in visual-regression.yml)
@@ -178,7 +181,7 @@ jobs:
           
           # Run the backstop tests and capture output
           TEST_START_TIME=$(date +%s)
-          TEST_OUTPUT=$(npm run -w tests/backstop backstopjs -- test 2>&1) || true
+          TEST_OUTPUT=$(npm run test:visualtest 2>&1) || true
           TEST_STATUS=$?
           TEST_END_TIME=$(date +%s)
           TEST_DURATION=$((TEST_END_TIME - TEST_START_TIME))
@@ -187,8 +190,8 @@ jobs:
           echo "$TEST_OUTPUT" > test-results/run-$RUN_COUNT/output.txt
           
           # Copy the JSON report if it exists
-          if [ -f "tests/backstop/json_report/report.json" ]; then
-            cp tests/backstop/json_report/report.json test-results/run-$RUN_COUNT/report.json
+          if [ -f "tests/backstop/json_report/jsonReport.json" ]; then
+            cp tests/backstop/json_report/jsonReport.json test-results/run-$RUN_COUNT/report.json
           else
             echo "{\"error\": \"No report generated\"}" > test-results/run-$RUN_COUNT/report.json
           fi

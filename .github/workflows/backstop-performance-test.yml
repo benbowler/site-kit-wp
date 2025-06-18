@@ -190,14 +190,14 @@ jobs:
             TEST_STATUS=0
             
             # Run the test and capture both stdout and stderr
-            npm run -w tests/backstop backstopjs -- test > "$TEST_OUTPUT_FILE" 2>&1 || TEST_STATUS=$?
+            npm run test:visualtest > "$TEST_OUTPUT_FILE" 2>&1 || TEST_STATUS=$?
             
             TEST_END_TIME=$(date +%s%3N)
             TEST_DURATION=$((TEST_END_TIME - TEST_START_TIME))
             
             # Copy the JSON report to our results directory if it exists
-            if [ -f "tests/backstop/json_report/report.json" ]; then
-              cp tests/backstop/json_report/report.json test-results/${{ needs.setup.outputs.test_parameter }}/${{ matrix.value }}/report-run-$i.json
+            if [ -f "tests/backstop/json_report/jsonReport.json" ]; then
+              cp tests/backstop/json_report/jsonReport.json test-results/${{ needs.setup.outputs.test_parameter }}/${{ matrix.value }}/report-run-$i.json
             else
               echo "{\"error\": \"No report generated\"}" > test-results/${{ needs.setup.outputs.test_parameter }}/${{ matrix.value }}/report-run-$i.json
             fi
