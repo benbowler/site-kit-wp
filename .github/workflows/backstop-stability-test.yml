@@ -128,30 +128,6 @@ jobs:
       
       - name: npm install
         run: npm ci
-      
-      - name: Build
-        run: npm run build:test
-      
-      # E2E tests use a dedicated container, this is just for Composer.
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '7.4'
-          tools: composer:2.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Get Composer Cache Directory
-        id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
-      
-      - uses: actions/cache@v4
-        with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
-      
-      - name: Composer Install
-        run: composer install --no-interaction --no-progress --no-dev
 
       - name: Fetch existing results
         id: fetch_results
@@ -187,18 +163,10 @@ jobs:
           # Update config with new run count
           jq ".run_count = $NEW_RUN_COUNT" backstop-stability-test-config.json > temp.json && mv temp.json backstop-stability-test-config.json
       
-      - name: Build Storybook
-        run: |
-          # Build Storybook with VRT flag
-          VRT=1 npm run build:storybook
-      
       - name: Run single backstop test
         id: run_test
         run: |
           echo "=== Starting test run #$RUN_COUNT at $(date) ==="
-          
-          # Start environment fresh for this run
-          npm run env:start
           
           # Create output directory for this run
           mkdir -p test-results/run-$RUN_COUNT
