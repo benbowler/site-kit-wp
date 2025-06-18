@@ -5,5 +5,12 @@
     "status": 0,
     "duration": 1292,
     "error": ""
+  },
+  {
+    "timestamp": "2025-06-18 14:48:50",
+    "run_number": "1",
+    "status": 0,
+    "duration": 1259,
+    "error": ""
   }
 ]
