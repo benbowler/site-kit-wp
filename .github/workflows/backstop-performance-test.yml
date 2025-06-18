@@ -129,29 +129,6 @@ jobs:
       - name: npm install
         run: npm ci
       
-      - name: Build
-        run: npm run build:test
-      
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '7.4'
-          tools: composer:2.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Get Composer Cache Directory
-        id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
-      
-      - uses: actions/cache@v4
-        with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
-      
-      - name: Composer Install
-        run: composer install --no-interaction --no-progress --no-dev
-      
       - name: Modify backstop config
         run: |
           # Create a backup of the original config
@@ -171,11 +148,6 @@ jobs:
       - name: Create results directory
         run: |
           mkdir -p test-results/${{ needs.setup.outputs.test_parameter }}/${{ matrix.value }}
-      
-      - name: Build Storybook
-        run: |
-          # Build Storybook with VRT flag (same as in visual-regression.yml)
-          VRT=1 npm run build:storybook
       
       - name: Run tests (3 iterations)
         run: |

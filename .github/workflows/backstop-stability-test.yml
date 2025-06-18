@@ -129,14 +129,6 @@ jobs:
       - name: npm install
         run: npm ci
 
-      - name: Build
-        run: npm run build:test
-
-      - name: Build Storybook
-        run: |
-          # Build Storybook with VRT flag (same as in visual-regression.yml)
-          VRT=1 npm run build:storybook
-
       - name: Fetch existing results
         id: fetch_results
         continue-on-error: true
