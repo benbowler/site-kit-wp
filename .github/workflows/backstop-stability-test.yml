@@ -191,8 +191,8 @@ jobs:
           # Extract error message if test failed
           ERROR_MSG=""
           if [ $TEST_STATUS -ne 0 ]; then
-            # Extract the error message from the output
-            ERROR_MSG=$(echo "$TEST_OUTPUT" | grep -A 10 "Error:" | head -n 10 | sed 's/"/\\"/g' | tr '\n' ' ')
+            # Extract the error message from the output, properly escaping for JSON
+            ERROR_MSG=$(echo "$TEST_OUTPUT" | grep -A 5 "Error:" 2>/dev/null | head -n 5 | tr -d '\000-\037' | sed 's/"/\\"/g' | tr '\n' ' ' || echo "Error details not available")
           fi
           
           # Record results (without the full output to avoid "argument list too long" errors)
