@@ -173,6 +173,11 @@ jobs:
         run: |
           mkdir -p test-results/${{ needs.setup.outputs.test_parameter }}/${{ matrix.value }}
       
+      - name: Build Storybook
+        run: |
+          # Build Storybook with VRT flag (same as in visual-regression.yml)
+          VRT=1 npm run build:storybook
+      
       - name: Run tests (3 iterations)
         run: |
           # Start environment
@@ -184,7 +189,8 @@ jobs:
             
             # Run the test and capture start/end time
             TEST_START_TIME=$(date +%s%3N)
-            ./tests/backstop/bin/backstop test || true
+            # Use the npm script instead of directly calling backstop
+            npm run -w tests/backstop backstopjs -- test || true
             TEST_END_TIME=$(date +%s%3N)
             TEST_DURATION=$((TEST_END_TIME - TEST_START_TIME))
             
