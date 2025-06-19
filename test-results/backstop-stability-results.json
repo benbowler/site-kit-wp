@@ -292,5 +292,12 @@
     "status": 0,
     "duration": 1269,
     "error": ""
+  },
+  {
+    "timestamp": "2025-06-19 12:51:25",
+    "run_number": "42",
+    "status": 0,
+    "duration": 1266,
+    "error": ""
   }
 ]
