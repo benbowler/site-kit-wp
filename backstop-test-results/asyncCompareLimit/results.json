@@ -1,0 +1,23 @@
+[
+  {
+    "run": 1,
+    "parameter": "asyncCompareLimit",
+    "value": 50,
+    "duration_ms": 1265910,
+    "status": 0
+  },
+  {
+    "run": 2,
+    "parameter": "asyncCompareLimit",
+    "value": 50,
+    "duration_ms": 1163858,
+    "status": 1
+  },
+  {
+    "run": 3,
+    "parameter": "asyncCompareLimit",
+    "value": 50,
+    "duration_ms": 1177235,
+    "status": 0
+  }
+]
