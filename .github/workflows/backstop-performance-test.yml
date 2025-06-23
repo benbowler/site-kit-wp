@@ -1,0 +1,386 @@
+name: Backstop Performance Test
+
+on:
+  # Allow manual triggering to start a new performance test
+  workflow_dispatch:
+    inputs:
+      async_capture_min:
+        description: 'Minimum value for asyncCaptureLimit'
+        required: true
+        default: '10'
+        type: string
+      async_capture_max:
+        description: 'Maximum value for asyncCaptureLimit'
+        required: true
+        default: '100'
+        type: string
+      async_capture_interval:
+        description: 'Increment between asyncCaptureLimit test values'
+        required: true
+        default: '10'
+        type: string
+      async_compare_min:
+        description: 'Minimum value for asyncCompareLimit'
+        required: true
+        default: '100'
+        type: string
+      async_compare_max:
+        description: 'Maximum value for asyncCompareLimit'
+        required: true
+        default: '1100'
+        type: string
+      async_compare_interval:
+        description: 'Increment between asyncCompareLimit test values'
+        required: true
+        default: '100'
+        type: string
+      wp_version:
+        description: 'WordPress version to test'
+        required: true
+        default: 'latest'
+        type: string
+      amp_version:
+        description: 'AMP version to test (leave empty for none)'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  # Setup job to prepare the test matrix
+  setup:
+    name: Setup Test Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      capture_matrix: ${{ steps.generate-capture-matrix.outputs.capture_matrix }}
+      compare_matrix: ${{ steps.generate-compare-matrix.outputs.compare_matrix }}
+      timestamp: ${{ steps.generate-timestamp.outputs.timestamp }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Generate timestamp for results
+        id: generate-timestamp
+        run: |
+          TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+          echo "timestamp=${TIMESTAMP}" >> $GITHUB_OUTPUT
+          echo "Generated timestamp: ${TIMESTAMP}"
+      
+      - name: Validate asyncCaptureLimit inputs
+        run: |
+          # Validate inputs for asyncCaptureLimit
+          MIN_VALUE=${{ github.event.inputs.async_capture_min }}
+          MAX_VALUE=${{ github.event.inputs.async_capture_max }}
+          INTERVAL=${{ github.event.inputs.async_capture_interval }}
+          
+          if ! [[ "$MIN_VALUE" =~ ^[0-9]+$ ]]; then
+            echo "Error: async_capture_min must be a positive integer"
+            exit 1
+          fi
+          
+          if ! [[ "$MAX_VALUE" =~ ^[0-9]+$ ]]; then
+            echo "Error: async_capture_max must be a positive integer"
+            exit 1
+          fi
+          
+          if ! [[ "$INTERVAL" =~ ^[0-9]+$ ]]; then
+            echo "Error: async_capture_interval must be a positive integer"
+            exit 1
+          fi
+          
+          if [ "$MIN_VALUE" -gt "$MAX_VALUE" ]; then
+            echo "Error: async_capture_min cannot be greater than async_capture_max"
+            exit 1
+          fi
+          
+          if [ "$INTERVAL" -le 0 ]; then
+            echo "Error: async_capture_interval must be greater than 0"
+            exit 1
+          fi
+      
+      - name: Validate asyncCompareLimit inputs
+        run: |
+          # Validate inputs for asyncCompareLimit
+          MIN_VALUE=${{ github.event.inputs.async_compare_min }}
+          MAX_VALUE=${{ github.event.inputs.async_compare_max }}
+          INTERVAL=${{ github.event.inputs.async_compare_interval }}
+          
+          if ! [[ "$MIN_VALUE" =~ ^[0-9]+$ ]]; then
+            echo "Error: async_compare_min must be a positive integer"
+            exit 1
+          fi
+          
+          if ! [[ "$MAX_VALUE" =~ ^[0-9]+$ ]]; then
+            echo "Error: async_compare_max must be a positive integer"
+            exit 1
+          fi
+          
+          if ! [[ "$INTERVAL" =~ ^[0-9]+$ ]]; then
+            echo "Error: async_compare_interval must be a positive integer"
+            exit 1
+          fi
+          
+          if [ "$MIN_VALUE" -gt "$MAX_VALUE" ]; then
+            echo "Error: async_compare_min cannot be greater than async_compare_max"
+            exit 1
+          fi
+          
+          if [ "$INTERVAL" -le 0 ]; then
+            echo "Error: async_compare_interval must be greater than 0"
+            exit 1
+          fi
+      
+      - name: Generate asyncCaptureLimit matrix
+        id: generate-capture-matrix
+        run: |
+          MIN_VALUE=${{ github.event.inputs.async_capture_min }}
+          MAX_VALUE=${{ github.event.inputs.async_capture_max }}
+          INTERVAL=${{ github.event.inputs.async_capture_interval }}
+          
+          # Generate array of values to test
+          VALUES=()
+          for ((i=MIN_VALUE; i<=MAX_VALUE; i+=INTERVAL)); do
+            VALUES+=($i)
+          done
+          
+          # Create JSON array for matrix
+          JSON_ARRAY=$(printf '"%s",' "${VALUES[@]}")
+          JSON_ARRAY="[${JSON_ARRAY%,}]"
+          
+          echo "capture_matrix=${JSON_ARRAY}" >> $GITHUB_OUTPUT
+          echo "Generated asyncCaptureLimit matrix: ${JSON_ARRAY}"
+      
+      - name: Generate asyncCompareLimit matrix
+        id: generate-compare-matrix
+        run: |
+          MIN_VALUE=${{ github.event.inputs.async_compare_min }}
+          MAX_VALUE=${{ github.event.inputs.async_compare_max }}
+          INTERVAL=${{ github.event.inputs.async_compare_interval }}
+          
+          # Generate array of values to test
+          VALUES=()
+          for ((i=MIN_VALUE; i<=MAX_VALUE; i+=INTERVAL)); do
+            VALUES+=($i)
+          done
+          
+          # Create JSON array for matrix
+          JSON_ARRAY=$(printf '"%s",' "${VALUES[@]}")
+          JSON_ARRAY="[${JSON_ARRAY%,}]"
+          
+          echo "compare_matrix=${JSON_ARRAY}" >> $GITHUB_OUTPUT
+          echo "Generated asyncCompareLimit matrix: ${JSON_ARRAY}"
+
+  # Run tests for each parameter combination
+  run-tests:
+    name: Test asyncCaptureLimit=${{ matrix.capture_value }} asyncCompareLimit=${{ matrix.compare_value }}
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        capture_value: ${{ fromJson(needs.setup.outputs.capture_matrix) }}
+        compare_value: ${{ fromJson(needs.setup.outputs.compare_matrix) }}
+      fail-fast: false
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js (.nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      
+      - name: Install npm Globally
+        run: npm run install-global-npm
+      
+      - name: npm install
+        run: npm ci
+      
+      - name: Modify backstop config
+        run: |
+          # Create a backup of the original config
+          cp tests/backstop/config.js tests/backstop/config.js.bak
+          
+          # Update the config with both parameter values
+          CAPTURE_VALUE="${{ matrix.capture_value }}"
+          COMPARE_VALUE="${{ matrix.compare_value }}"
+          
+          # Use sed to replace both parameter values in the config file
+          sed -i "s/\(asyncCaptureLimit: \)[0-9]\+/\1${CAPTURE_VALUE}/" tests/backstop/config.js
+          sed -i "s/\(asyncCompareLimit: \)[0-9]\+/\1${COMPARE_VALUE}/" tests/backstop/config.js
+          
+          # Verify the changes
+          echo "Modified backstop config:"
+          grep -A 1 -B 1 "asyncCaptureLimit" tests/backstop/config.js
+          grep -A 1 -B 1 "asyncCompareLimit" tests/backstop/config.js
+      
+      - name: Create results directory
+        run: |
+          mkdir -p test-results/grid/${{ matrix.capture_value }}_${{ matrix.compare_value }}
+      
+      - name: Run tests (3 iterations)
+        run: |
+          # Run 3 iterations of the test
+          for i in {1..3}; do
+            echo "=== Starting test run #$i for asyncCaptureLimit=${{ matrix.capture_value }} asyncCompareLimit=${{ matrix.compare_value }} ==="
+            
+            # Run the test and capture start/end time and output
+            TEST_START_TIME=$(date +%s%3N)
+            TEST_STATUS=0
+            
+            # Run the test and only capture status
+            npm run test:visualtest > /dev/null 2>&1 || TEST_STATUS=$?
+            
+            TEST_END_TIME=$(date +%s%3N)
+            TEST_DURATION=$((TEST_END_TIME - TEST_START_TIME))
+            
+            # Create a summary for this run with timing information for both parameters
+            echo "{\"run\": $i, \"asyncCaptureLimit\": ${{ matrix.capture_value }}, \"asyncCompareLimit\": ${{ matrix.compare_value }}, \"duration_ms\": $TEST_DURATION, \"status\": $TEST_STATUS}" > test-results/grid/${{ matrix.capture_value }}_${{ matrix.compare_value }}/summary-run-$i.json
+            
+            echo "=== Completed test run #$i in ${TEST_DURATION}ms with status $TEST_STATUS ==="
+          done
+      
+      - name: Upload results as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backstop-test-results-grid-${{ matrix.capture_value }}-${{ matrix.compare_value }}
+          path: test-results/grid/${{ matrix.capture_value }}_${{ matrix.compare_value }}/
+          retention-days: 1
+
+  # Process and commit results
+  process-results:
+    name: Process Test Results
+    needs: [setup, run-tests]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # For committing results back to repo
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: backstop-test-results
+          fetch-depth: 1
+      
+      - name: Create results directory if it doesn't exist
+        run: |
+          mkdir -p backstop-test-results/grid-tests
+      
+      - name: Download all test results
+        uses: actions/download-artifact@v4
+        with:
+          path: temp-artifacts
+      
+      - name: Process results
+        run: |
+          # Install jq for JSON processing
+          sudo apt-get update
+          sudo apt-get install -y jq
+          
+          # Create timestamp-based directory for this test run
+          TIMESTAMP="${{ needs.setup.outputs.timestamp }}"
+          RESULTS_DIR="backstop-test-results/grid-tests/${TIMESTAMP}"
+          mkdir -p "${RESULTS_DIR}"
+          
+          # Create results array
+          echo "[]" > "${RESULTS_DIR}/results.json"
+          
+          # Process each combination's results
+          for value_dir in temp-artifacts/backstop-test-results-grid-*; do
+            # Extract capture and compare values from directory name
+            dir_name=$(basename "$value_dir")
+            capture_value=$(echo "$dir_name" | sed -E 's/backstop-test-results-grid-([0-9]+)-([0-9]+)/\1/')
+            compare_value=$(echo "$dir_name" | sed -E 's/backstop-test-results-grid-([0-9]+)-([0-9]+)/\2/')
+            
+            # Process the 3 runs for this combination
+            for run_file in "$value_dir"/summary-run-*.json; do
+              # Add this run's data to the results array
+              jq -s '.[0] + [.[1]]' "${RESULTS_DIR}/results.json" "$run_file" > temp.json
+              mv temp.json "${RESULTS_DIR}/results.json"
+            done
+          done
+          
+          # Generate CSV from JSON with timing and status information
+          echo "asyncCaptureLimit,asyncCompareLimit,run,duration_ms,status" > "${RESULTS_DIR}/results.csv"
+          jq -r '.[] | [.asyncCaptureLimit, .asyncCompareLimit, .run, .duration_ms, .status // 0] | @csv' "${RESULTS_DIR}/results.json" >> "${RESULTS_DIR}/results.csv"
+          
+          # Generate summary statistics
+          echo "# Backstop Performance Grid Test Results" > "${RESULTS_DIR}/summary.md"
+          echo "" >> "${RESULTS_DIR}/summary.md"
+          echo "Test run at: $(date)" >> "${RESULTS_DIR}/summary.md"
+          echo "Timestamp: ${TIMESTAMP}" >> "${RESULTS_DIR}/summary.md"
+          echo "" >> "${RESULTS_DIR}/summary.md"
+          echo "## Summary" >> "${RESULTS_DIR}/summary.md"
+          echo "" >> "${RESULTS_DIR}/summary.md"
+          echo "| asyncCaptureLimit | asyncCompareLimit | Avg Duration (ms) | Min Duration (ms) | Max Duration (ms) | Success Rate | Failures |" >> "${RESULTS_DIR}/summary.md"
+          echo "|------------------|------------------|------------------|------------------|------------------|-------------|----------|" >> "${RESULTS_DIR}/summary.md"
+          
+          # Get unique combinations of asyncCaptureLimit and asyncCompareLimit
+          jq -r '.[] | [.asyncCaptureLimit, .asyncCompareLimit] | @csv' "${RESULTS_DIR}/results.json" | sort -n | uniq > combinations.txt
+          
+          while IFS=, read -r capture_value compare_value; do
+            # Remove quotes from values
+            capture_value=$(echo "$capture_value" | tr -d '"')
+            compare_value=$(echo "$compare_value" | tr -d '"')
+            
+            # Calculate statistics for this combination
+            avg=$(jq -r "[.[] | select(.asyncCaptureLimit == $capture_value and .asyncCompareLimit == $compare_value) | .duration_ms] | add / length" "${RESULTS_DIR}/results.json")
+            min=$(jq -r "[.[] | select(.asyncCaptureLimit == $capture_value and .asyncCompareLimit == $compare_value) | .duration_ms] | min" "${RESULTS_DIR}/results.json")
+            max=$(jq -r "[.[] | select(.asyncCaptureLimit == $capture_value and .asyncCompareLimit == $compare_value) | .duration_ms] | max" "${RESULTS_DIR}/results.json")
+            
+            # Calculate success rate
+            total_runs=$(jq -r "[.[] | select(.asyncCaptureLimit == $capture_value and .asyncCompareLimit == $compare_value)] | length" "${RESULTS_DIR}/results.json")
+            successful_runs=$(jq -r "[.[] | select(.asyncCaptureLimit == $capture_value and .asyncCompareLimit == $compare_value and .status == 0)] | length" "${RESULTS_DIR}/results.json")
+            success_rate=$(echo "scale=2; ($successful_runs / $total_runs) * 100" | bc)
+            failures=$(($total_runs - $successful_runs))
+            
+            # Add to summary table
+            printf "| %s | %s | %.2f | %d | %d | %.2f%% | %d |\n" "$capture_value" "$compare_value" "$avg" "$min" "$max" "$success_rate" "$failures" >> "${RESULTS_DIR}/summary.md"
+          done < combinations.txt
+          
+          # Note failures without details
+          total_failures=$(jq -r "[.[] | select(.status != 0)] | length" "${RESULTS_DIR}/results.json")
+          if [ "$total_failures" -gt 0 ]; then
+            echo "" >> "${RESULTS_DIR}/summary.md"
+            echo "## Failures" >> "${RESULTS_DIR}/summary.md"
+            echo "" >> "${RESULTS_DIR}/summary.md"
+            echo "$total_failures tests failed. See the summary table for details on which parameter combinations had failures." >> "${RESULTS_DIR}/summary.md"
+          fi
+          
+          # Create a heatmap visualization of the results
+          echo "" >> "${RESULTS_DIR}/summary.md"
+          echo "## Heatmap of Average Duration (ms)" >> "${RESULTS_DIR}/summary.md"
+          echo "" >> "${RESULTS_DIR}/summary.md"
+          echo "| asyncCaptureLimit → <br> asyncCompareLimit ↓ | $(jq -r '.[] | .asyncCaptureLimit' "${RESULTS_DIR}/results.json" | sort -n | uniq | tr '\n' ' ' | sed 's/ / | /g') |" >> "${RESULTS_DIR}/summary.md"
+          
+          # Create header separator row
+          compare_values=$(jq -r '.[] | .asyncCompareLimit' "${RESULTS_DIR}/results.json" | sort -n | uniq)
+          capture_values=$(jq -r '.[] | .asyncCaptureLimit' "${RESULTS_DIR}/results.json" | sort -n | uniq)
+          header_sep="|---|"
+          for _ in $capture_values; do
+            header_sep="${header_sep}---|"
+          done
+          echo "$header_sep" >> "${RESULTS_DIR}/summary.md"
+          
+          # Create rows for each asyncCompareLimit value
+          for compare_value in $compare_values; do
+            row="| $compare_value |"
+            for capture_value in $capture_values; do
+              avg=$(jq -r "[.[] | select(.asyncCaptureLimit == $capture_value and .asyncCompareLimit == $compare_value) | .duration_ms] | add / length" "${RESULTS_DIR}/results.json")
+              # Format with no decimal places for cleaner display
+              avg_int=$(printf "%.0f" "$avg")
+              row="${row} ${avg_int} |"
+            done
+            echo "$row" >> "${RESULTS_DIR}/summary.md"
+          done
+      
+      - name: Commit results back to repository
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add backstop-test-results/
+          git commit -m "Add backstop performance grid test results (${TIMESTAMP}) [skip ci]"
+          git push origin backstop-test-results || git push --set-upstream origin backstop-test-results
+      
+      - name: Upload final results as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backstop-performance-grid-test-results-${{ needs.setup.outputs.timestamp }}
+          path: backstop-test-results/grid-tests/${{ needs.setup.outputs.timestamp }}/

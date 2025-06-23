@@ -1,4 +1,4 @@
-name: E2E Stability Test
+name: Backstop Stability Test
 
 on:
   # Allow manual triggering to start a new stability test
@@ -19,7 +19,7 @@ on:
   
   # Schedule to run every 30 minutes
   # schedule:
-  #   - cron: '27,57 * * * *'
+  #   - cron: '17,47 * * * *'
   
   # Allow being called from other workflows
   workflow_call:
@@ -53,7 +53,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: stability-test-results
+          ref: backstop-stability-test-results
           fetch-depth: 1
           
       - name: Check if stability test is in progress
@@ -74,14 +74,14 @@ jobs:
             exit 0
           fi
           
-          # Check if stability-test-config.json exists
-          if [ -f "stability-test-config.json" ]; then
+          # Check if backstop-stability-test-config.json exists
+          if [ -f "backstop-stability-test-config.json" ]; then
             # Read config
-            START_TIME=$(jq -r '.start_time' stability-test-config.json)
-            DURATION_HOURS=$(jq -r '.duration_hours' stability-test-config.json)
-            WP_VERSION=$(jq -r '.wp_version' stability-test-config.json)
-            AMP_VERSION=$(jq -r '.amp_version' stability-test-config.json)
-            RUN_COUNT=$(jq -r '.run_count' stability-test-config.json)
+            START_TIME=$(jq -r '.start_time' backstop-stability-test-config.json)
+            DURATION_HOURS=$(jq -r '.duration_hours' backstop-stability-test-config.json)
+            WP_VERSION=$(jq -r '.wp_version' backstop-stability-test-config.json)
+            AMP_VERSION=$(jq -r '.amp_version' backstop-stability-test-config.json)
+            RUN_COUNT=$(jq -r '.run_count' backstop-stability-test-config.json)
             
             # Calculate end time
             END_TIME=$((START_TIME + DURATION_HOURS * 3600))
@@ -99,9 +99,9 @@ jobs:
             fi
           fi
 
-  # Run a single E2E test if needed
-  e2e-stability-test:
-    name: E2E Stability Test (WordPress ${{ needs.check-stability-test.outputs.wp_version }}${{ needs.check-stability-test.outputs.amp_version && ', AMP ' }}${{ needs.check-stability-test.outputs.amp_version }})
+  # Run a single backstop test if needed
+  backstop-stability-test:
+    name: Backstop Stability Test (WordPress ${{ needs.check-stability-test.outputs.wp_version }}${{ needs.check-stability-test.outputs.amp_version && ', AMP ' }}${{ needs.check-stability-test.outputs.amp_version }})
     needs: check-stability-test
     if: needs.check-stability-test.outputs.should_run == 'true'
     runs-on: ubuntu-latest
@@ -128,55 +128,31 @@ jobs:
       
       - name: npm install
         run: npm ci
-      
-      - name: Build
-        run: npm run build:test
-      
-      # E2E tests use a dedicated container, this is just for Composer.
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '7.4'
-          tools: composer:2.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Get Composer Cache Directory
-        id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
-      
-      - uses: actions/cache@v4
-        with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: ${{ runner.os }}-composer-
-      
-      - name: Composer Install
-        run: composer install --no-interaction --no-progress --no-dev
-      
+
       - name: Fetch existing results
         id: fetch_results
         continue-on-error: true
         run: |
-          # Try to checkout the stability-test-results branch
-          git fetch origin stability-test-results || true
-          git checkout stability-test-results || git checkout -b stability-test-results
+          # Try to checkout the backstop-stability-test-results branch
+          git fetch origin backstop-stability-test-results || true
+          git checkout backstop-stability-test-results || git checkout -b backstop-stability-test-results
           
           # Create directories if they don't exist
           mkdir -p test-results
           
           # Initialize results file if it doesn't exist
-          if [ ! -f "test-results/e2e-stability-results.json" ]; then
-            echo "[]" > test-results/e2e-stability-results.json
+          if [ ! -f "test-results/backstop-stability-results.json" ]; then
+            echo "[]" > test-results/backstop-stability-results.json
           fi
           
           # Initialize config file if it doesn't exist or if this is a manual trigger
-          if [ ! -f "stability-test-config.json" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          if [ ! -f "backstop-stability-test-config.json" ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             # For manual trigger, create a new config
             if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-              echo "{\"start_time\": $(date +%s), \"duration_hours\": ${{ github.event.inputs.duration_hours }}, \"wp_version\": \"${{ github.event.inputs.wp_version }}\", \"amp_version\": \"${{ github.event.inputs.amp_version }}\", \"run_count\": 0}" > stability-test-config.json
+              echo "{\"start_time\": $(date +%s), \"duration_hours\": ${{ github.event.inputs.duration_hours }}, \"wp_version\": \"${{ github.event.inputs.wp_version }}\", \"amp_version\": \"${{ github.event.inputs.amp_version }}\", \"run_count\": 0}" > backstop-stability-test-config.json
             else
               # For scheduled runs, use the values from the check job
-              echo "{\"start_time\": $(date +%s), \"duration_hours\": 24, \"wp_version\": \"${{ env.WP_VERSION }}\", \"amp_version\": \"${{ env.AMP_VERSION }}\", \"run_count\": ${{ env.RUN_COUNT }}}" > stability-test-config.json
+              echo "{\"start_time\": $(date +%s), \"duration_hours\": 24, \"wp_version\": \"${{ env.WP_VERSION }}\", \"amp_version\": \"${{ env.AMP_VERSION }}\", \"run_count\": ${{ env.RUN_COUNT }}}" > backstop-stability-test-config.json
             fi
           fi
           
@@ -185,65 +161,82 @@ jobs:
           echo "NEW_RUN_COUNT=$NEW_RUN_COUNT" >> $GITHUB_ENV
           
           # Update config with new run count
-          jq ".run_count = $NEW_RUN_COUNT" stability-test-config.json > temp.json && mv temp.json stability-test-config.json
+          jq ".run_count = $NEW_RUN_COUNT" backstop-stability-test-config.json > temp.json && mv temp.json backstop-stability-test-config.json
       
-      - name: Run single E2E test
+      - name: Run single backstop test
         id: run_test
         run: |
           echo "=== Starting test run #$RUN_COUNT at $(date) ==="
           
-          # Start environment fresh for this run
-          npm run env:start
+          # Create output directory for this run
+          mkdir -p test-results/run-$RUN_COUNT
           
-          # Run the E2E tests and capture output
+          # Run the backstop tests and capture output
           TEST_START_TIME=$(date +%s)
-          TEST_OUTPUT=$(npm run test:e2e 2>&1) || true
+          TEST_OUTPUT=$(npm run test:visualtest 2>&1) || true
           TEST_STATUS=$?
           TEST_END_TIME=$(date +%s)
           TEST_DURATION=$((TEST_END_TIME - TEST_START_TIME))
           
-          # Record results
+          # Save the test output to a file
+          echo "$TEST_OUTPUT" > test-results/run-$RUN_COUNT/output.txt
+          
+          # Copy the JSON report if it exists
+          if [ -f "tests/backstop/json_report/jsonReport.json" ]; then
+            cp tests/backstop/json_report/jsonReport.json test-results/run-$RUN_COUNT/report.json
+          else
+            echo "{\"error\": \"No report generated\"}" > test-results/run-$RUN_COUNT/report.json
+          fi
+          
+          # Extract error message if test failed
+          ERROR_MSG=""
+          if [ $TEST_STATUS -ne 0 ]; then
+            # Extract the error message from the output, properly escaping for JSON
+            ERROR_MSG=$(echo "$TEST_OUTPUT" | grep -A 5 "Error:" 2>/dev/null | head -n 5 | tr -d '\000-\037' | sed 's/"/\\"/g' | tr '\n' ' ' || echo "Error details not available")
+          fi
+          
+          # Record results (without the full output to avoid "argument list too long" errors)
           TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
           jq --arg timestamp "$TIMESTAMP" \
              --arg run_number "$RUN_COUNT" \
              --argjson status "$TEST_STATUS" \
              --argjson duration "$TEST_DURATION" \
-             --arg output "$TEST_OUTPUT" \
-             '. += [{"timestamp": $timestamp, "run_number": $run_number, "status": $status, "duration": $duration, "output": $output}]' \
-             test-results/e2e-stability-results.json > temp.json && mv temp.json test-results/e2e-stability-results.json
+             --arg error "$ERROR_MSG" \
+             '. += [{"timestamp": $timestamp, "run_number": $run_number, "status": $status, "duration": $duration, "error": $error}]' \
+             test-results/backstop-stability-results.json > temp.json && mv temp.json test-results/backstop-stability-results.json
           
           # Generate summary stats
           TOTAL_RUNS=$NEW_RUN_COUNT
-          SUCCESS_COUNT=$(jq '[.[] | select(.status == 0)] | length' test-results/e2e-stability-results.json)
-          FAILURE_COUNT=$(jq '[.[] | select(.status != 0)] | length' test-results/e2e-stability-results.json)
+          SUCCESS_COUNT=$(jq '[.[] | select(.status == 0)] | length' test-results/backstop-stability-results.json)
+          FAILURE_COUNT=$(jq '[.[] | select(.status != 0)] | length' test-results/backstop-stability-results.json)
           SUCCESS_RATE=$(echo "scale=2; ($SUCCESS_COUNT / $TOTAL_RUNS) * 100" | bc)
           
           echo "=== Test run #$RUN_COUNT completed with status $TEST_STATUS ==="
           echo "=== Summary: $SUCCESS_COUNT/$TOTAL_RUNS successful ($SUCCESS_RATE% success rate) ==="
           
           # Generate summary file
-          echo "### E2E Stability Test Summary" > test-results/summary.md
+          echo "### Backstop Stability Test Summary" > test-results/summary.md
           echo "- Total runs: $TOTAL_RUNS" >> test-results/summary.md
           echo "- Successful runs: $SUCCESS_COUNT" >> test-results/summary.md
           echo "- Failed runs: $FAILURE_COUNT" >> test-results/summary.md
           echo "- Success rate: $SUCCESS_RATE%" >> test-results/summary.md
           
           # Create CSV for easier analysis
-          echo "run_number,timestamp,status,duration" > test-results/e2e-stability-results.csv
-          jq -r '.[] | [.run_number, .timestamp, .status, .duration] | @csv' test-results/e2e-stability-results.json >> test-results/e2e-stability-results.csv
+          echo "run_number,timestamp,status,duration,error" > test-results/backstop-stability-results.csv
+          jq -r '.[] | [.run_number, .timestamp, .status, .duration, .error] | @csv' test-results/backstop-stability-results.json >> test-results/backstop-stability-results.csv
       
       - name: Commit results back to repository
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git add test-results/ stability-test-config.json
-          git commit -m "Update E2E stability test results (run #$RUN_COUNT) [skip ci]"
-          git push origin stability-test-results
+          git add test-results/ backstop-stability-test-config.json
+          git commit -m "Update backstop stability test results (run #$RUN_COUNT) [skip ci]"
+          git push origin backstop-stability-test-results
         
       - name: Upload results as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-stability-results-run-${{ env.RUN_COUNT }}
+          name: backstop-stability-results-run-${{ env.RUN_COUNT }}
           path: test-results/
           
   # Generate final report when test duration is complete
@@ -257,13 +250,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: stability-test-results
+          ref: backstop-stability-test-results
           fetch-depth: 1
       
       - name: Check if test results exist
         id: check_results
         run: |
-          if [ -f "test-results/e2e-stability-results.json" ] && [ -f "stability-test-config.json" ]; then
+          if [ -f "test-results/backstop-stability-results.json" ] && [ -f "backstop-stability-test-config.json" ]; then
             echo "results_exist=true" >> $GITHUB_OUTPUT
           else
             echo "results_exist=false" >> $GITHUB_OUTPUT
@@ -273,20 +266,35 @@ jobs:
         if: steps.check_results.outputs.results_exist == 'true'
         run: |
           # Calculate final statistics
-          TOTAL_RUNS=$(jq '. | length' test-results/e2e-stability-results.json)
-          SUCCESS_COUNT=$(jq '[.[] | select(.status == 0)] | length' test-results/e2e-stability-results.json)
-          FAILURE_COUNT=$(jq '[.[] | select(.status != 0)] | length' test-results/e2e-stability-results.json)
+          TOTAL_RUNS=$(jq '. | length' test-results/backstop-stability-results.json)
+          SUCCESS_COUNT=$(jq '[.[] | select(.status == 0)] | length' test-results/backstop-stability-results.json)
+          FAILURE_COUNT=$(jq '[.[] | select(.status != 0)] | length' test-results/backstop-stability-results.json)
           SUCCESS_RATE=$(echo "scale=2; ($SUCCESS_COUNT / $TOTAL_RUNS) * 100" | bc)
-          AVG_DURATION=$(jq '[.[] | .duration] | add / length' test-results/e2e-stability-results.json)
+          AVG_DURATION=$(jq '[.[] | .duration] | add / length' test-results/backstop-stability-results.json)
           
           # Generate final summary
-          echo "### E2E Stability Test Final Report" > test-results/final-report.md
+          echo "### Backstop Stability Test Final Report" > test-results/final-report.md
           echo "- Test completed at: $(date)" >> test-results/final-report.md
           echo "- Total runs: $TOTAL_RUNS" >> test-results/final-report.md
           echo "- Successful runs: $SUCCESS_COUNT" >> test-results/final-report.md
           echo "- Failed runs: $FAILURE_COUNT" >> test-results/final-report.md
           echo "- Success rate: $SUCCESS_RATE%" >> test-results/final-report.md
           echo "- Average duration: $AVG_DURATION seconds" >> test-results/final-report.md
+          
+          # Add error details section if there were any failures
+          if [ "$FAILURE_COUNT" -gt 0 ]; then
+            echo "" >> test-results/final-report.md
+            echo "### Error Details" >> test-results/final-report.md
+            echo "" >> test-results/final-report.md
+            echo "| Run | Timestamp | Error |" >> test-results/final-report.md
+            echo "|-----|-----------|-------|" >> test-results/final-report.md
+            
+            # Add each error to the table
+            jq -r '.[] | select(.status != 0) | [.run_number, .timestamp, .error] | @tsv' test-results/backstop-stability-results.json | \
+            while IFS=$'\t' read -r run timestamp error; do
+              printf "| %s | %s | %s |\n" "$run" "$timestamp" "$error" >> test-results/final-report.md
+            done
+          fi
           
           # Update summary.md with final report
           cp test-results/final-report.md test-results/summary.md
@@ -295,18 +303,18 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add test-results/
-          git commit -m "Add E2E stability test final report [skip ci]"
-          git push origin stability-test-results
+          git commit -m "Add backstop stability test final report [skip ci]"
+          git push origin backstop-stability-test-results
           
           # Clean up config to indicate test is complete
-          rm stability-test-config.json
+          rm backstop-stability-test-config.json
           git add -u
-          git commit -m "Clean up stability test config [skip ci]"
-          git push origin stability-test-results
+          git commit -m "Clean up backstop stability test config [skip ci]"
+          git push origin backstop-stability-test-results
       
       - name: Upload final results as artifact
         if: steps.check_results.outputs.results_exist == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-stability-final-results
+          name: backstop-stability-final-results
           path: test-results/
