@@ -1,13 +1,22 @@
 # Backstop Performance Test Results for asyncCompareLimit
 
-Test run at: Mon Jun 23 11:57:16 UTC 2025
+Test run at: Mon Jun 23 14:00:59 UTC 2025
 
 ## Summary
 
 | Value | Avg Duration (ms) | Min Duration (ms) | Max Duration (ms) | Success Rate | Failures |
 |-------|------------------|------------------|------------------|-------------|----------|
-| 50 | 1202334.33 | 1163858 | 1265910 | 66.00% | 1 |
+| 50 | 1262927.33 | 1229523 | 1318435 | 33.00% | 2 |
+| 100 | 1200370.00 | 1166818 | 1265460 | 66.00% | 1 |
+| 150 | 1228456.33 | 1193599 | 1293958 | 66.00% | 1 |
+| 200 | 1408451.00 | 1345511 | 1515443 | 66.00% | 1 |
+| 250 | 1222127.67 | 1179324 | 1306828 | 33.00% | 2 |
+| 300 | 1266625.33 | 1218528 | 1345035 | 66.00% | 1 |
+| 350 | 1207512.00 | 1174982 | 1269933 | 100.00% | 0 |
+| 400 | 1247561.00 | 1202202 | 1326323 | 33.00% | 2 |
+| 450 | 1251882.00 | 1216143 | 1313081 | 33.00% | 2 |
+| 500 | 1230056.67 | 1196841 | 1289504 | 66.00% | 1 |
 
 ## Failures
 
-1 tests failed. See the summary table for details on which parameter values had failures.
+13 tests failed. See the summary table for details on which parameter values had failures.
