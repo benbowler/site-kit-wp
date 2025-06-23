@@ -3,210 +3,231 @@
     "run": 1,
     "parameter": "asyncCompareLimit",
     "value": 100,
-    "duration_ms": 1265460,
+    "duration_ms": 1333497,
     "status": 1
   },
   {
     "run": 2,
     "parameter": "asyncCompareLimit",
     "value": 100,
-    "duration_ms": 1168832,
+    "duration_ms": 1206215,
     "status": 0
   },
   {
     "run": 3,
     "parameter": "asyncCompareLimit",
     "value": 100,
-    "duration_ms": 1166818,
+    "duration_ms": 1204011,
     "status": 0
+  },
+  {
+    "run": 1,
+    "parameter": "asyncCompareLimit",
+    "value": 110,
+    "duration_ms": 1283942,
+    "status": 1
+  },
+  {
+    "run": 2,
+    "parameter": "asyncCompareLimit",
+    "value": 110,
+    "duration_ms": 1183159,
+    "status": 1
+  },
+  {
+    "run": 3,
+    "parameter": "asyncCompareLimit",
+    "value": 110,
+    "duration_ms": 1186239,
+    "status": 0
+  },
+  {
+    "run": 1,
+    "parameter": "asyncCompareLimit",
+    "value": 120,
+    "duration_ms": 1306167,
+    "status": 1
+  },
+  {
+    "run": 2,
+    "parameter": "asyncCompareLimit",
+    "value": 120,
+    "duration_ms": 1201113,
+    "status": 0
+  },
+  {
+    "run": 3,
+    "parameter": "asyncCompareLimit",
+    "value": 120,
+    "duration_ms": 1186668,
+    "status": 1
+  },
+  {
+    "run": 1,
+    "parameter": "asyncCompareLimit",
+    "value": 130,
+    "duration_ms": 1290932,
+    "status": 0
+  },
+  {
+    "run": 2,
+    "parameter": "asyncCompareLimit",
+    "value": 130,
+    "duration_ms": 1185070,
+    "status": 1
+  },
+  {
+    "run": 3,
+    "parameter": "asyncCompareLimit",
+    "value": 130,
+    "duration_ms": 1195760,
+    "status": 1
+  },
+  {
+    "run": 1,
+    "parameter": "asyncCompareLimit",
+    "value": 140,
+    "duration_ms": 1314537,
+    "status": 0
+  },
+  {
+    "run": 2,
+    "parameter": "asyncCompareLimit",
+    "value": 140,
+    "duration_ms": 1192283,
+    "status": 1
+  },
+  {
+    "run": 3,
+    "parameter": "asyncCompareLimit",
+    "value": 140,
+    "duration_ms": 1190919,
+    "status": 1
   },
   {
     "run": 1,
     "parameter": "asyncCompareLimit",
     "value": 150,
-    "duration_ms": 1293958,
+    "duration_ms": 1338512,
     "status": 1
   },
   {
     "run": 2,
     "parameter": "asyncCompareLimit",
     "value": 150,
-    "duration_ms": 1197812,
-    "status": 0
+    "duration_ms": 1206615,
+    "status": 1
   },
   {
     "run": 3,
     "parameter": "asyncCompareLimit",
     "value": 150,
-    "duration_ms": 1193599,
+    "duration_ms": 1209864,
     "status": 0
-  },
-  {
-    "run": 1,
-    "parameter": "asyncCompareLimit",
-    "value": 200,
-    "duration_ms": 1515443,
-    "status": 0
-  },
-  {
-    "run": 2,
-    "parameter": "asyncCompareLimit",
-    "value": 200,
-    "duration_ms": 1364399,
-    "status": 1
-  },
-  {
-    "run": 3,
-    "parameter": "asyncCompareLimit",
-    "value": 200,
-    "duration_ms": 1345511,
-    "status": 0
-  },
-  {
-    "run": 1,
-    "parameter": "asyncCompareLimit",
-    "value": 250,
-    "duration_ms": 1306828,
-    "status": 1
-  },
-  {
-    "run": 2,
-    "parameter": "asyncCompareLimit",
-    "value": 250,
-    "duration_ms": 1180231,
-    "status": 0
-  },
-  {
-    "run": 3,
-    "parameter": "asyncCompareLimit",
-    "value": 250,
-    "duration_ms": 1179324,
-    "status": 1
-  },
-  {
-    "run": 1,
-    "parameter": "asyncCompareLimit",
-    "value": 300,
-    "duration_ms": 1345035,
-    "status": 0
-  },
-  {
-    "run": 2,
-    "parameter": "asyncCompareLimit",
-    "value": 300,
-    "duration_ms": 1218528,
-    "status": 0
-  },
-  {
-    "run": 3,
-    "parameter": "asyncCompareLimit",
-    "value": 300,
-    "duration_ms": 1236313,
-    "status": 1
-  },
-  {
-    "run": 1,
-    "parameter": "asyncCompareLimit",
-    "value": 350,
-    "duration_ms": 1269933,
-    "status": 0
-  },
-  {
-    "run": 2,
-    "parameter": "asyncCompareLimit",
-    "value": 350,
-    "duration_ms": 1174982,
-    "status": 0
-  },
-  {
-    "run": 3,
-    "parameter": "asyncCompareLimit",
-    "value": 350,
-    "duration_ms": 1177621,
-    "status": 0
-  },
-  {
-    "run": 1,
-    "parameter": "asyncCompareLimit",
-    "value": 400,
-    "duration_ms": 1326323,
-    "status": 1
-  },
-  {
-    "run": 2,
-    "parameter": "asyncCompareLimit",
-    "value": 400,
-    "duration_ms": 1202202,
-    "status": 1
-  },
-  {
-    "run": 3,
-    "parameter": "asyncCompareLimit",
-    "value": 400,
-    "duration_ms": 1214158,
-    "status": 0
-  },
-  {
-    "run": 1,
-    "parameter": "asyncCompareLimit",
-    "value": 450,
-    "duration_ms": 1313081,
-    "status": 0
-  },
-  {
-    "run": 2,
-    "parameter": "asyncCompareLimit",
-    "value": 450,
-    "duration_ms": 1216143,
-    "status": 1
-  },
-  {
-    "run": 3,
-    "parameter": "asyncCompareLimit",
-    "value": 450,
-    "duration_ms": 1226422,
-    "status": 1
   },
   {
     "run": 1,
     "parameter": "asyncCompareLimit",
     "value": 50,
-    "duration_ms": 1318435,
+    "duration_ms": 1267730,
     "status": 1
   },
   {
     "run": 2,
     "parameter": "asyncCompareLimit",
     "value": 50,
-    "duration_ms": 1229523,
+    "duration_ms": 1165541,
     "status": 1
   },
   {
     "run": 3,
     "parameter": "asyncCompareLimit",
     "value": 50,
-    "duration_ms": 1240824,
-    "status": 0
+    "duration_ms": 1169060,
+    "status": 1
   },
   {
     "run": 1,
     "parameter": "asyncCompareLimit",
-    "value": 500,
-    "duration_ms": 1289504,
+    "value": 60,
+    "duration_ms": 1271847,
     "status": 1
   },
   {
     "run": 2,
     "parameter": "asyncCompareLimit",
-    "value": 500,
-    "duration_ms": 1203825,
+    "value": 60,
+    "duration_ms": 1167081,
     "status": 0
   },
   {
     "run": 3,
     "parameter": "asyncCompareLimit",
-    "value": 500,
-    "duration_ms": 1196841,
+    "value": 60,
+    "duration_ms": 1170473,
+    "status": 1
+  },
+  {
+    "run": 1,
+    "parameter": "asyncCompareLimit",
+    "value": 70,
+    "duration_ms": 1282005,
+    "status": 1
+  },
+  {
+    "run": 2,
+    "parameter": "asyncCompareLimit",
+    "value": 70,
+    "duration_ms": 1177785,
+    "status": 1
+  },
+  {
+    "run": 3,
+    "parameter": "asyncCompareLimit",
+    "value": 70,
+    "duration_ms": 1185908,
+    "status": 1
+  },
+  {
+    "run": 1,
+    "parameter": "asyncCompareLimit",
+    "value": 80,
+    "duration_ms": 1291730,
+    "status": 1
+  },
+  {
+    "run": 2,
+    "parameter": "asyncCompareLimit",
+    "value": 80,
+    "duration_ms": 1185123,
+    "status": 0
+  },
+  {
+    "run": 3,
+    "parameter": "asyncCompareLimit",
+    "value": 80,
+    "duration_ms": 1190696,
+    "status": 1
+  },
+  {
+    "run": 1,
+    "parameter": "asyncCompareLimit",
+    "value": 90,
+    "duration_ms": 1232347,
+    "status": 0
+  },
+  {
+    "run": 2,
+    "parameter": "asyncCompareLimit",
+    "value": 90,
+    "duration_ms": 1141906,
+    "status": 1
+  },
+  {
+    "run": 3,
+    "parameter": "asyncCompareLimit",
+    "value": 90,
+    "duration_ms": 1157452,
     "status": 0
   }
 ]
