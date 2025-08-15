@@ -23,13 +23,12 @@
  * @since 1.25.0
  * @since n.e.x.t Updated to use progressive strategy for waiting for requests.
  *
- * @param {Object} options                    Options for the wait function.
- * @param {number} options.networkIdleTimeout Time to wait for network idle.
- * @param {number} options.responseTimeout    Maximum time to wait for requests in milliseconds.
+ * @param {Object} options                 Options for the wait function.
+ * @param {number} options.responseTimeout Maximum time to wait for requests in milliseconds.
  * @return {Function} Wait function.
  */
 export function createWaitForFetchRequests( {
-	networkIdleTimeout = 15000,
+	// networkIdleTimeout = 15000,
 	responseTimeout = 60000,
 } = {} ) {
 	const activeRequests = new Set();
@@ -59,20 +58,20 @@ export function createWaitForFetchRequests( {
 
 	page.on( 'request', listener );
 
-	return async () => {
+	return () => {
 		page.off( 'request', listener );
 
-		// Strategy 1: Use page.waitForNetworkIdle() as primary mechanism.
-		try {
-			await page.waitForNetworkIdle( { timeout: networkIdleTimeout } );
+		// // Strategy 1: Use page.waitForNetworkIdle() as primary mechanism.
+		// try {
+		// 	await page.waitForNetworkIdle( { timeout: networkIdleTimeout } );
 
-			// If all requests are already idle, we can resolve immediately.
-			if ( activeRequests.size === 0 ) {
-				return;
-			}
-		} catch ( error ) {
-			// If network idle times out, we fall back to tracking active requests.
-		}
+		// 	// If all requests are already idle, we can resolve immediately.
+		// 	if ( activeRequests.size === 0 ) {
+		// 		return;
+		// 	}
+		// } catch ( error ) {
+		// 	// If network idle times out, we fall back to tracking active requests.
+		// }
 
 		// Strategy 2: Wait for tracked requests to be resolved.
 		return new Promise( ( resolve ) => {
