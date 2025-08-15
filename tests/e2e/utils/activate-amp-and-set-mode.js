@@ -134,5 +134,5 @@ export async function setAMPMode( mode ) {
 	await expect( page ).toClick( `#theme_support_${ ampMode }` );
 	await expect( page ).toClick( '#submit' );
 	await waitForFetchRequests();
-	// Navigation is already handled by waitForFetchRequests() which uses waitForNetworkIdle()
+	await page.waitForNavigation();
 }
