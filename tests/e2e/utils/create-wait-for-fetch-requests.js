@@ -34,7 +34,7 @@ export function createWaitForFetchRequests( {
 } = {} ) {
 	const activeRequests = new Set();
 
-	const listener = ( req ) => {
+	function listener( req ) {
 		if ( req.resourceType() !== 'fetch' ) {
 			return;
 		}
@@ -55,7 +55,7 @@ export function createWaitForFetchRequests( {
 				// Clean up request ID on error
 				activeRequests.delete( requestID );
 			} );
-	};
+	}
 
 	page.on( 'request', listener );
 
@@ -76,14 +76,14 @@ export function createWaitForFetchRequests( {
 
 		// Strategy 2: Wait for tracked requests to be resolved.
 		return new Promise( ( resolve ) => {
-			const checkCompletion = () => {
+			function checkCompletion() {
 				if ( activeRequests.size === 0 ) {
 					resolve();
 					return;
 				}
 
 				setTimeout( checkCompletion, 500 );
-			};
+			}
 
 			checkCompletion();
 		} );
