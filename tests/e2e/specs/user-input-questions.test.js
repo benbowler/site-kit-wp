@@ -202,6 +202,15 @@ describe( 'User Input Settings', () => {
 	} );
 
 	afterEach( async () => {
+		// Wait for network idle to allow outstanding requests to resolve
+		// and prevent Invalid JSON Response error.
+		try {
+			await page.waitForNetworkIdle( { timeout: 15_000 } );
+		} catch ( error ) {
+			// eslint-disable-next-line no-console
+			console.debug( 'network idle not reached', error );
+			// Allow to fail silently if timeout is reached.
+		}
 		// await page.waitForNetworkIdle( { timeout: 15000 } );
 		// await waitForFetchRequests();
 
@@ -266,16 +275,6 @@ describe( 'User Input Settings', () => {
 		} );
 
 		await fillInInputSettings();
-
-		// Wait for network idle to allow outstanding requests to resolve
-		// and prevent Invalid JSON Response error.
-		try {
-			await page.waitForNetworkIdle( { timeout: 15_000 } );
-		} catch ( error ) {
-			// eslint-disable-next-line no-console
-			console.debug( 'network idle not reached', error );
-			// Allow to fail silently if timeout is reached.
-		}
 	} );
 
 	it( 'should let existing users enter input settings from the settings page', async () => {

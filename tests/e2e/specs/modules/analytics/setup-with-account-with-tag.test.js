@@ -162,6 +162,16 @@ describe( 'setting up the Analytics module with an existing account and existing
 	} );
 
 	afterEach( async () => {
+		// Wait for network idle to allow outstanding requests to resolve
+		// and prevent Invalid JSON Response error.
+		try {
+			await page.waitForNetworkIdle( { timeout: 15_000 } );
+		} catch ( error ) {
+			// eslint-disable-next-line no-console
+			console.debug( 'network idle not reached', error );
+			// Allow to fail silently if timeout is reached.
+		}
+
 		await deactivateUtilityPlugins();
 		await resetSiteKit();
 	} );
@@ -202,16 +212,6 @@ describe( 'setting up the Analytics module with an existing account and existing
 		} );
 
 		await assertSetupSuccessful();
-
-		// Wait for network idle to allow outstanding requests to resolve
-		// and prevent Invalid JSON Response error.
-		try {
-			await page.waitForNetworkIdle( { timeout: 15_000 } );
-		} catch ( error ) {
-			// eslint-disable-next-line no-console
-			console.debug( 'network idle not reached', error );
-			// Allow to fail silently if timeout is reached.
-		}
 	} );
 
 	it( 'does allow Analytics to be set up with an existing tag if it is a GA4 tag', async () => {
