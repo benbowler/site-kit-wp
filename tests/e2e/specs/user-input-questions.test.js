@@ -270,7 +270,7 @@ describe( 'User Input Settings', () => {
 				expect( page ).toClick(
 					'.googlesitekit-widget--keyMetricsSetupCTA .googlesitekit-banner__cta'
 				),
-				page.waitForNavigation(),
+				page.waitForNavigation( { timeout: 10_000 } ),
 			] );
 		} );
 
