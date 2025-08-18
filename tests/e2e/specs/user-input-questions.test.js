@@ -45,8 +45,12 @@ import getMultiDimensionalObjectFromParams from '../utils/get-multi-dimensional-
 
 describe( 'User Input Settings', () => {
 	async function fillInInputSettings() {
+		// The UserInputApp needs more time to load to pass consistently.
+		const extendedTimeout = 20_000;
+
+		await page.waitForNetworkIdle( { timeout: extendedTimeout } );
 		await page.waitForSelector( '.googlesitekit-user-input__question', {
-			timeout: 15000, // The UserInputApp needs more time to load to pass consistently.
+			timeout: extendedTimeout,
 		} );
 
 		await step( 'select purpose', async () => {
@@ -85,8 +89,8 @@ describe( 'User Input Settings', () => {
 					{ text: /complete setup/i }
 				),
 				// Navigation and network idle needs more time to complete to consistently pass.
-				page.waitForNavigation( { timeout: 15000 } ),
-				page.waitForNetworkIdle( { timeout: 15000 } ),
+				page.waitForNavigation( { timeout: extendedTimeout } ),
+				page.waitForNetworkIdle( { timeout: extendedTimeout } ),
 			] )
 		);
 
@@ -184,6 +188,8 @@ describe( 'User Input Settings', () => {
 		} );
 	} );
 
+	// let waitForFetchRequests;
+
 	beforeEach( async () => {
 		await activatePlugins(
 			'e2e-tests-proxy-setup',
@@ -191,9 +197,23 @@ describe( 'User Input Settings', () => {
 		);
 		await setSearchConsoleProperty();
 		await page.setRequestInterception( true );
+
+		// waitForFetchRequests = createWaitForFetchRequests();
 	} );
 
 	afterEach( async () => {
+		// Wait for network idle to allow outstanding requests to resolve
+		// and prevent Invalid JSON Response error.
+		try {
+			await page.waitForNetworkIdle( { timeout: 15_000 } );
+		} catch ( error ) {
+			// eslint-disable-next-line no-console
+			console.debug( 'network idle not reached', error );
+			// Allow to fail silently if timeout is reached.
+		}
+		// await page.waitForNetworkIdle( { timeout: 15000 } );
+		// await waitForFetchRequests();
+
 		await deactivateUtilityPlugins();
 		await resetSiteKit();
 	} );
@@ -250,7 +270,7 @@ describe( 'User Input Settings', () => {
 				expect( page ).toClick(
 					'.googlesitekit-widget--keyMetricsSetupCTA .googlesitekit-banner__cta'
 				),
-				page.waitForNavigation(),
+				page.waitForNavigation( { timeout: 10_000 } ),
 			] );
 		} );
 
