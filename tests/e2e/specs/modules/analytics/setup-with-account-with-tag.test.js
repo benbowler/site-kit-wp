@@ -9,7 +9,6 @@ import { activatePlugin, visitAdminPage } from '@wordpress/e2e-test-utils';
 import {
 	deactivateUtilityPlugins,
 	resetSiteKit,
-	safeLoginUser,
 	setAnalyticsExistingPropertyID,
 	setAuthToken,
 	setClientConfig,
@@ -24,11 +23,8 @@ async function proceedToSetUpAnalytics() {
 	await Promise.all( [
 		expect( page ).toClick( '.googlesitekit-cta-link', {
 			text: /set up analytics/i,
-			timeout: 10000,
 		} ),
-		page.waitForSelector( '.googlesitekit-setup-module--analytics', {
-			timeout: 15000,
-		} ),
+		page.waitForSelector( '.googlesitekit-setup-module--analytics' ),
 		page.waitForResponse( ( res ) =>
 			res.url().match( 'analytics-4/data/account-summaries' )
 		),
@@ -145,60 +141,29 @@ describe( 'setting up the Analytics module with an existing account and existing
 		useRequestInterception( getRequestResponseMappings() );
 	} );
 
-	// let waitForFetchRequests;
-
 	beforeEach( async () => {
 		await activatePlugin( 'e2e-tests-proxy-auth-plugin' );
 		await activatePlugin( 'e2e-tests-analytics-existing-tag' );
 		await activatePlugin( 'e2e-tests-module-setup-analytics-api-mock' );
 
-		// Ensure we are logged in and on a WP admin page so E2E assets (window._e2eApiFetch) are available
-		await safeLoginUser();
-		await visitAdminPage( 'index.php' );
-
-		// Configure Site Kit via REST before navigating to settings
 		await setClientConfig();
 		await setAuthToken();
 		await setSiteVerification();
 		await setSearchConsoleProperty();
 
 		await visitAdminPage( 'admin.php', 'page=googlesitekit-settings' );
-		await page.waitForSelector( '.mdc-tab-bar', { timeout: 15000 } );
+		await page.waitForSelector( '.mdc-tab-bar' );
 		await expect( page ).toClick( '.mdc-tab', {
 			text: /connect more services/i,
-			timeout: 10000,
 		} );
 		await page.waitForSelector(
-			'.googlesitekit-settings-connect-module--analytics-4',
-			{ timeout: 15000 }
+			'.googlesitekit-settings-connect-module--analytics-4'
 		);
-
-		// eslint-disable-next-line no-console
-		console.debug( 'end setup' );
-
-		// waitForFetchRequests = createWaitForFetchRequests();
 	} );
 
 	afterEach( async () => {
-		// eslint-disable-next-line no-console
-		console.debug( 'start taredown' );
-		try {
-			await page.waitForNetworkIdle( { timeout: 15_000 } );
-		} catch ( error ) {
-			// eslint-disable-next-line no-console
-			console.debug( 'network idle not reached', error );
-		}
-		// await waitForFetchRequests();
-		// eslint-disable-next-line no-console
-		console.debug( 'ended network idle' );
-
-		// Re-enable cleanup now that deactivateUtilityPlugins is more robust.
 		await deactivateUtilityPlugins();
-		// eslint-disable-next-line no-console
-		console.debug( 'deactivated plugin' );
 		await resetSiteKit();
-		// eslint-disable-next-line no-console
-		console.debug( 'reset site kit' );
 	} );
 
 	it( 'informs about an existing tag that matches the current selected property', async () => {
@@ -237,37 +202,31 @@ describe( 'setting up the Analytics module with an existing account and existing
 		} );
 
 		await assertSetupSuccessful();
+
+		// Wait for network idle to allow outstanding requests to resolve
+		// and prevent Invalid JSON Response error.
+		try {
+			await page.waitForNetworkIdle( { timeout: 15_000 } );
+		} catch ( error ) {
+			// eslint-disable-next-line no-console
+			console.debug( 'network idle not reached', error );
+			// Allow to fail silently if timeout is reached.
+		}
 	} );
 
 	it( 'does allow Analytics to be set up with an existing tag if it is a GA4 tag', async () => {
-		try {
-			// e2e stuff
-			const existingTag = {
-				accountID: '99999999',
-				propertyID: 'G-99999999',
-			};
+		const existingTag = {
+			accountID: '99999999',
+			propertyID: 'G-99999999',
+		};
 
-			// eslint-disable-next-line no-console
-			console.debug( 'step 1' );
-			await setAnalyticsExistingPropertyID( existingTag.propertyID );
-			// eslint-disable-next-line no-console
-			console.debug( 'step 2' );
-			await proceedToSetUpAnalytics();
-			// eslint-disable-next-line no-console
-			console.debug( 'step 3' );
+		await setAnalyticsExistingPropertyID( existingTag.propertyID );
+		await proceedToSetUpAnalytics();
 
-			await expect( page ).toClick( 'button:not([disabled])', {
-				text: /complete setup/i,
-			} );
-			// eslint-disable-next-line no-console
-			console.debug( 'step 4' );
+		await expect( page ).toClick( 'button:not([disabled])', {
+			text: /complete setup/i,
+		} );
 
-			await assertSetupSuccessful();
-		} catch ( err ) {
-			// eslint-disable-next-line no-console
-			console.debug( '🚀 ~ err:', err );
-			// await jestPuppeteer.debug();
-			throw err; // Ensure the test still fails
-		}
+		await assertSetupSuccessful();
 	} );
 } );
