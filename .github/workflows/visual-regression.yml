@@ -1,6 +1,9 @@
 name: Visual Regression Testing
 
 on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/30 * * * *'
   pull_request:
     branches:
       - main
@@ -26,6 +29,10 @@ on:
       - synchronize
       - ready_for_review
 
+permissions:
+  contents: read
+  actions: write
+
 concurrency:
   group: visual-regression-${{ github.ref }}
   cancel-in-progress: true
@@ -35,15 +42,75 @@ jobs:
     name: Run VR Tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: github.event.pull_request.draft == false
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     steps:
+      - name: Resume scheduled runs
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const core = require('@actions/core');
+            const varName = 'VRT_CRON_DISABLED';
+            const value = 'false';
+            async function upsertVariable( value ) {
+              try {
+                await github.rest.actions.updateRepoVariable({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: varName,
+                  value,
+                });
+              } catch ( error ) {
+                if ( error.status === 404 ) {
+                  await github.rest.actions.createRepoVariable({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: varName,
+                    value,
+                  });
+                } else {
+                  throw error;
+                }
+              }
+            }
+            await upsertVariable( value );
+            core.info( `Set ${ varName }=${ value } to resume scheduled runs.` );
+      - name: Check cron pause flag
+        id: cron_guard
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const core = require('@actions/core');
+            const varName = 'VRT_CRON_DISABLED';
+            let disabled = false;
+            try {
+              const { data } = await github.rest.actions.getRepoVariable({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                name: varName,
+              });
+              disabled = data.value === 'true';
+            } catch ( error ) {
+              if ( error.status !== 404 ) {
+                throw error;
+              }
+              core.info( `Variable ${ varName } not found. Defaulting to enabled.` );
+            }
+            core.setOutput( 'disabled', disabled ? 'true' : 'false' );
+      - name: Skip scheduled run (cron paused)
+        if: ${{ github.event_name == 'schedule' && steps.cron_guard.outputs.disabled == 'true' }}
+        run: |
+          echo "Visual regression cron runs are paused after a previous failure. Trigger workflow_dispatch to resume."
       - uses: actions/checkout@v4
+        if: ${{ github.event_name != 'schedule' || steps.cron_guard.outputs.disabled != 'true' }}
       - name: Setup Node.js (.nvmrc)
+        if: ${{ github.event_name != 'schedule' || steps.cron_guard.outputs.disabled != 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
       - name: npm install
+        if: ${{ github.event_name != 'schedule' || steps.cron_guard.outputs.disabled != 'true' }}
         run: npm i -w assets -w tests/backstop -w storybook -w tests/js --include-workspace-root
       # - name: Log in to GitHub Container Registry
       #   uses: docker/login-action@v3
@@ -52,47 +119,57 @@ jobs:
       #     username: google-site-kit-bot
       #     password: ${{ secrets.GH_BOT_TOKEN }}
       - name: Run Backstopjs (Run 1)
+        if: ${{ github.event_name != 'schedule' || steps.cron_guard.outputs.disabled != 'true' }}
         id: vrt_run_1
         run: npm run test:visualtest
       - name: Run Backstopjs (Run 2)
+        if: ${{ github.event_name != 'schedule' || steps.cron_guard.outputs.disabled != 'true' }}
         id: vrt_run_2
         continue-on-error: false
         run: npm run test:visualtest
       - name: Run Backstopjs (Run 3)
+        if: ${{ github.event_name != 'schedule' || steps.cron_guard.outputs.disabled != 'true' }}
         id: vrt_run_3
         continue-on-error: false
         run: npm run test:visualtest
       - name: Run Backstopjs (Run 4)
+        if: ${{ github.event_name != 'schedule' || steps.cron_guard.outputs.disabled != 'true' }}
         id: vrt_run_4
         continue-on-error: false
         run: npm run test:visualtest
       - name: Run Backstopjs (Run 5)
+        if: ${{ github.event_name != 'schedule' || steps.cron_guard.outputs.disabled != 'true' }}
         id: vrt_run_5
         continue-on-error: false
         run: npm run test:visualtest
       - name: Run Backstopjs (Run 6)
+        if: ${{ github.event_name != 'schedule' || steps.cron_guard.outputs.disabled != 'true' }}
         id: vrt_run_6
         continue-on-error: false
         run: npm run test:visualtest
       - name: Run Backstopjs (Run 7)
+        if: ${{ github.event_name != 'schedule' || steps.cron_guard.outputs.disabled != 'true' }}
         id: vrt_run_7
         continue-on-error: false
         run: npm run test:visualtest
       - name: Run Backstopjs (Run 8)
+        if: ${{ github.event_name != 'schedule' || steps.cron_guard.outputs.disabled != 'true' }}
         id: vrt_run_8
         continue-on-error: false
         run: npm run test:visualtest
       - name: Run Backstopjs (Run 9)
+        if: ${{ github.event_name != 'schedule' || steps.cron_guard.outputs.disabled != 'true' }}
         id: vrt_run_9
         continue-on-error: false
         run: npm run test:visualtest
       - name: Run Backstopjs (Run 10)
+        if: ${{ github.event_name != 'schedule' || steps.cron_guard.outputs.disabled != 'true' }}
         id: vrt_run_10
         continue-on-error: false
         run: npm run test:visualtest
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
-        if: failure()
+        if: ${{ (github.event_name != 'schedule' || steps.cron_guard.outputs.disabled != 'true') && failure() }}
         with:
           name: vrt-report
           path: |
@@ -101,3 +178,34 @@ jobs:
             tests/backstop/json_report
             tests/backstop/reference
             tests/backstop/tests
+      - name: Pause cron after failure
+        if: ${{ failure() && github.event_name != 'pull_request' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const core = require('@actions/core');
+            const varName = 'VRT_CRON_DISABLED';
+            const value = 'true';
+            async function upsertVariable( value ) {
+              try {
+                await github.rest.actions.updateRepoVariable({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: varName,
+                  value,
+                });
+              } catch ( error ) {
+                if ( error.status === 404 ) {
+                  await github.rest.actions.createRepoVariable({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: varName,
+                    value,
+                  });
+                } else {
+                  throw error;
+                }
+              }
+            }
+            await upsertVariable( value );
+            core.info( `Set ${ varName }=${ value } to pause scheduled runs after failure.` );
