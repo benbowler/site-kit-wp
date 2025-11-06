@@ -1,6 +1,9 @@
 name: Visual Regression Testing
 
 on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/30 * * * *'
   pull_request:
     branches:
       - main
@@ -35,27 +38,69 @@ jobs:
     name: Run VR Tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: github.event.pull_request.draft == false
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     steps:
+      - name: Check cron pause flag
+        id: cron_guard
+        uses: actions/github-script@v7
+        with:
+          result-encoding: string
+          script: |
+            if ( context.eventName !== 'schedule' ) {
+              return 'false';
+            }
+
+            const { owner, repo } = context.repo;
+            const workflowFile = 'visual-regression.yml';
+
+            const { data } = await github.rest.actions.listWorkflowRuns({
+              owner,
+              repo,
+              workflow_id: workflowFile,
+              per_page: 20,
+            });
+
+            const runs = data.workflow_runs
+              .filter( ( run ) => run.id !== context.runId && run.status === 'completed' )
+              .sort( ( a, b ) => new Date( b.created_at ) - new Date( a.created_at ) );
+
+            if ( runs.length === 0 ) {
+              console.log( 'No completed runs found. Proceeding with tests.' );
+              return 'false';
+            }
+
+            const lastRun = runs[ 0 ];
+            console.log( `Last completed run conclusion: ${ lastRun.conclusion } (event: ${ lastRun.event })` );
+
+            return lastRun.conclusion === 'failure' ? 'true' : 'false';
+      - name: Skip scheduled run (cron paused)
+        if: ${{ github.event_name == 'schedule' && steps.cron_guard.outputs.result == 'true' }}
+        run: |
+          echo "Visual regression cron runs are paused after a previous failure. Trigger workflow_dispatch to resume."
       - uses: actions/checkout@v4
+        if: ${{ github.event_name != 'schedule' || steps.cron_guard.outputs.result != 'true' }}
       - name: Setup Node.js (.nvmrc)
+        if: ${{ github.event_name != 'schedule' || steps.cron_guard.outputs.result != 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: npm
       - name: npm install
+        if: ${{ github.event_name != 'schedule' || steps.cron_guard.outputs.result != 'true' }}
         run: npm i -w assets -w tests/backstop -w storybook -w tests/js --include-workspace-root
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: google-site-kit-bot
-          password: ${{ secrets.GH_BOT_TOKEN }}
+      # - name: Log in to GitHub Container Registry
+      #   uses: docker/login-action@v3
+      #   with:
+      #     registry: ghcr.io
+      #     username: google-site-kit-bot
+      #     password: ${{ secrets.GH_BOT_TOKEN }}
       - name: Run Backstopjs
+        if: ${{ github.event_name != 'schedule' || steps.cron_guard.outputs.result != 'true' }}
+        id: vrt_run_1
         run: npm run test:visualtest
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
-        if: failure()
+        if: ${{ (github.event_name != 'schedule' || steps.cron_guard.outputs.result != 'true') && failure() }}
         with:
           name: vrt-report
           path: |
