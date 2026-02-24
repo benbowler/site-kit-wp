@@ -238,6 +238,11 @@ describe( 'SettingsCardVisitorGroups', () => {
 				);
 			} );
 
+			// Wait for the first toggle's save to complete before the second click.
+			await waitFor( () => {
+				expect( fetchMock ).toHaveFetched( audienceSettingsEndpoint );
+			} );
+
 			await waitForRegistry();
 
 			switchControl.click();
